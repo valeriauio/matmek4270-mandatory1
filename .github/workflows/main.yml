@@ -1,4 +1,4 @@
-name: Test MAT-MEK4270 projects
+name: MAT-MEK4270 mandatory 1
 
 on:
   push:
