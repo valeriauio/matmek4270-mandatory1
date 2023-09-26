@@ -153,8 +153,3 @@ def test_convergence_wave2d_neumann():
 
 def test_exact_wave2d():
     raise NotImplementedError
-
-if __name__ == '__main__':
-    solver = Wave2D()
-    #solver = Wave2D_Neumann()
-    r, E, h = solver.convergence_rates()
