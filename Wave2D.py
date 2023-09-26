@@ -36,19 +36,12 @@ class Wave2D:
         mx, my : int
             Parameters for the standing wave
         """
-        self.mx, self.my = mx, my
-        U = np.zeros((3, N+1, N+1))
-        Unp1, Un, Unm1 = U
-        xij, yij = self.xij, self.yij = self.create_mesh(N, True)
-        ue = sp.lambdify((x, y), self.ue(mx, my).subs(t, 0))(xij, yij)
-        Unm1[:] = ue
-        Un[:] = ue*np.cos(float(self.w)*self.dt)
-        return U
+        raise NotImplementedError
 
     @property
     def dt(self):
         """Return the time step"""
-        return self.cfl/self.N/self.c
+        raise NotImplementedError
 
     def l2_error(self, u, t0):
         """Return l2-error norm
@@ -61,11 +54,6 @@ class Wave2D:
             The time of the comparison
         """
         raise NotImplementedError
-
-    def plots(self, d):
-        fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-        surf = ax.plot_surface(self.xij, self.yij, d, cmap=cm.coolwarm,
-                               linewidth=0, antialiased=False)
 
     def apply_bcs(self):
         raise NotImplementedError
