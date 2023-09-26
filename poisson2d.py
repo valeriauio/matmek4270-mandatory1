@@ -75,6 +75,20 @@ class Poisson2D:
         return self.U
 
     def convergence_rates(self, m=6):
+        """Compute convergence rates for a range of discretizations
+
+        Parameters
+        ----------
+        m : int
+            The number of discretization levels to use
+
+        Returns
+        -------
+        3-tuple of arrays. The arrays represent:
+            0: the orders
+            1: the l2-errors
+            2: the mesh sizes
+        """
         E = []
         h = []
         N0 = 8
