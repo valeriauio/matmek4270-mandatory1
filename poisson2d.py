@@ -57,7 +57,7 @@ class Poisson2D:
         raise NotImplementedError
 
     def __call__(self, N):
-        """Solve Poisson's equation
+        """Solve Poisson's equation.
 
         Parameters
         ----------
@@ -71,7 +71,8 @@ class Poisson2D:
         """
         self.create_mesh(N)
         A, b = self.assemble()
-        return sparse.linalg.spsolve(A, b.flatten()).reshape((N+1, N+1))
+        self.U = sparse.linalg.spsolve(A, b.flatten()).reshape((N+1, N+1))
+        return self.U
 
     def convergence_rates(self, m=6):
         E = []
@@ -85,12 +86,32 @@ class Poisson2D:
         r = [np.log(E[i-1]/E[i])/np.log(h[i-1]/h[i]) for i in range(1, m+1, 1)]
         return r, np.array(E), np.array(h)
 
-def test_poisson2d():
+    def eval(self, x, y):
+        """Return u(x, y)
+
+        Parameters
+        ----------
+        x, y : numbers
+            The coordinates for evaluation
+
+        Returns
+        -------
+        The value of u(x, y)
+
+        """
+        raise NotImplementedError
+
+def test_convergence_poisson2d():
     # This exact solution is NOT zero on the entire boundary
     ue = sp.exp(sp.cos(4*sp.pi*x)*sp.sin(2*sp.pi*y))
     sol = Poisson2D(1, ue)
     r, E, h = sol.convergence_rates()
     assert abs(r[-1]-2) < 1e-2
 
-if __name__ == '__main__':
-    test_poisson2d()
+def test_intrepolation():
+    ue = sp.exp(sp.cos(4*sp.pi*x)*sp.sin(2*sp.pi*y))
+    sol = Poisson2D(1, ue)
+    U = sol(100)
+    assert abs(sol.eval(0.52, 0.63) - ue.subs({x: 0.52, y: 0.63}).n()) < 1e-3
+    assert abs(sol.eval(sol.h/2, 1-sol.h/2) - ue.subs({x: sol.h, y: 1-sol.h/2}).n()) < 1e-3
+
