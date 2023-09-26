@@ -108,7 +108,7 @@ def test_convergence_poisson2d():
     r, E, h = sol.convergence_rates()
     assert abs(r[-1]-2) < 1e-2
 
-def test_intrepolation():
+def test_interpolation():
     ue = sp.exp(sp.cos(4*sp.pi*x)*sp.sin(2*sp.pi*y))
     sol = Poisson2D(1, ue)
     U = sol(100)
