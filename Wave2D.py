@@ -10,17 +10,27 @@ class Wave2D:
 
     def create_mesh(self, N, sparse=False):
         """Create 2D mesh and store in self.xij and self.yij"""
-        # self.xji, self.yij = ...
-        raise NotImplementedError
+        xm = np.linspace(0, 1, N+1)
+        ym = np.linspace(0, 1, N+1)
+        mesh = np.meshgrid(xm, ym, indexing='ij', sparse = sparse)
+        self.xij, self.yij = mesh
+        self.N = N
+        self.dx = 1/N
+        return self.xij, self.yij, self.dx, self.N
 
     def D2(self, N):
         """Return second order differentiation matrix"""
-        raise NotImplementedError
+        D2 = sparse.diags([1, -2, 1], [-1, 0, 1], (N+1, N+1), 'lil')
+        D2[0, :4] = 2, -5, 4, -1
+        D2[-1, -4:] = -1, 4, -5, 2
+        return D2
 
     @property
     def w(self):
         """Return the dispersion coefficient"""
-        raise NotImplementedError
+        kx = self.mx*sp.pi
+        ky = self.my*sp.pi
+        return sp.sqrt(kx**2 + ky**2)*self.c
 
     def ue(self, mx, my):
         """Return the exact standing wave"""
@@ -36,12 +46,20 @@ class Wave2D:
         mx, my : int
             Parameters for the standing wave
         """
-        raise NotImplementedError
+        Un, Unm1 = np.zeros((2, N+1, N+1))
+        ue = self.ue(mx,my)
+        U = ue.subs(t, 0)
+        D = self.D2(N)/self.dx**2
+        Unm1[:] = sp.lambdify((x, y), U)(self.xij, self.yij)
+        Un[:] = Unm1[:] + 0.5*(self.c*self.dt)**2*(D @ Unm1 + Unm1 @ D.T)
+        self.Unm1 = Unm1
+        self.Un = Un
+        return self.Unm1, self.Un
 
     @property
     def dt(self):
         """Return the time step"""
-        raise NotImplementedError
+        return self.cfl*self.dx/self.c
 
     def l2_error(self, u, t0):
         """Return l2-error norm
@@ -53,10 +71,15 @@ class Wave2D:
         t0 : number
             The time of the comparison
         """
-        raise NotImplementedError
+        ue = self.ue(self.mx,self.my)
+        ue = ue.subs(t,t0)
+        return np.sqrt(self.dx**2*np.sum((u - sp.lambdify((x, y), ue)(self.xij, self.yij))**2))
 
     def apply_bcs(self):
-        raise NotImplementedError
+        self.Unp1[0] = 0
+        self.Unp1[-1] = 0
+        self.Unp1[:, -1] = 0
+        self.Unp1[:, 0] = 0
 
     def __call__(self, N, Nt, cfl=0.5, c=1.0, mx=3, my=3, store_data=-1):
         """Solve the wave equation
@@ -83,7 +106,36 @@ class Wave2D:
         If store_data > 0, then return a dictionary with key, value = timestep, solution
         If store_data == -1, then return the two-tuple (h, l2-error)
         """
-        raise NotImplementedError
+        self.create_mesh(N)
+        self.mx = mx
+        self.my = my
+        D = self.D2(N)/self.dx**2
+        self.cfl = cfl
+        self.c = c
+        dt = self.dt
+        E = np.zeros(Nt+1)
+        
+    
+        self.initialize(N,mx,my)
+        self.Unp1 = np.zeros((N+1,N+1))
+        E[0] = self.l2_error(self.Unm1, 0)
+        E[1] = self.l2_error(self.Un, dt)
+        plotdata = {0: self.Unm1.copy()}
+        if store_data > 0:
+            plotdata[1] = self.Un.copy()
+        for n in range(1, Nt):
+            self.Unp1 = 2*self.Un - self.Unm1 + (c*dt)**2 * (D @ self.Un + self.Un @ D.T)
+            self.apply_bcs()
+            self.Unm1 = self.Un
+            self.Un = self.Unp1
+            if n % store_data == 0: 
+                plotdata[n] = self.Unm1.copy()
+            E[n+1] = self.l2_error(self.Un, (n+1)*dt)
+        if store_data > 0:
+            return plotdata    
+        if store_data == -1:
+            h = 1/N
+            return h, E
 
     def convergence_rates(self, m=4, cfl=0.1, Nt=10, mx=3, my=3):
         """Compute convergence rates for a range of discretizations
@@ -121,13 +173,16 @@ class Wave2D:
 class Wave2D_Neumann(Wave2D):
 
     def D2(self, N):
-        raise NotImplementedError
+        D2 = sparse.diags([1, -2, 1], [-1, 0, 1], (N+1, N+1), 'lil')
+        D2[0, :4] = -2, 2, 0, 0
+        D2[-1, -4:] = 0, 0, 2, -2
+        return D2
 
     def ue(self, mx, my):
-        raise NotImplementedError
+        return sp.cos(mx*sp.pi*x)*sp.cos(my*sp.pi*y)*sp.cos(self.w*t)
 
     def apply_bcs(self):
-        raise NotImplementedError
+        pass
 
 def test_convergence_wave2d():
     sol = Wave2D()
@@ -140,4 +195,31 @@ def test_convergence_wave2d_neumann():
     assert abs(r[-1]-2) < 0.05
 
 def test_exact_wave2d():
-    raise NotImplementedError
+    sol = Wave2D()
+    solN = Wave2D_Neumann()
+    root2 = 2**(0.5)
+    h, E = sol(N = 40, Nt = 10, cfl = 1/root2, mx=2, my=2)
+    hN, EN = solN(N = 40, Nt = 10, cfl = 1/root2, mx=2, my=2)
+    assert E.max() < 1e-15
+    assert EN.max() < 1e-15
+    
+solN = Wave2D_Neumann()
+root2 = 2**(0.5)
+plotdata = solN(40, 501, cfl=1/root2, store_data=5,mx=2,my=2)
+xij, yij, dx, N = solN.create_mesh(40)
+
+import matplotlib.animation as animation
+
+
+fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
+frames = []
+for n, val in plotdata.items():
+    frame = ax.plot_wireframe(xij, yij, val, rstride=2, cstride=2);
+    frames.append([frame])
+    
+ani = animation.ArtistAnimation(fig, frames, interval=400, blit=True,
+                                repeat_delay=1000)
+ani.save('neumannwave.gif', writer='pillow', fps=5) 
+from IPython.display import HTML
+from IPython.display import display
+display(HTML(ani.to_jshtml()))   
