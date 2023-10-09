@@ -202,24 +202,3 @@ def test_exact_wave2d():
     hN, EN = solN(N = 40, Nt = 10, cfl = 1/root2, mx=2, my=2)
     assert E.max() < 1e-15
     assert EN.max() < 1e-15
-    
-solN = Wave2D_Neumann()
-root2 = 2**(0.5)
-plotdata = solN(40, 501, cfl=1/root2, store_data=5,mx=2,my=2)
-xij, yij, dx, N = solN.create_mesh(40)
-
-import matplotlib.animation as animation
-
-
-fig, ax = plt.subplots(subplot_kw={"projection": "3d"})
-frames = []
-for n, val in plotdata.items():
-    frame = ax.plot_wireframe(xij, yij, val, rstride=2, cstride=2);
-    frames.append([frame])
-    
-ani = animation.ArtistAnimation(fig, frames, interval=400, blit=True,
-                                repeat_delay=1000)
-ani.save('neumannwave.gif', writer='pillow', fps=5) 
-from IPython.display import HTML
-from IPython.display import display
-display(HTML(ani.to_jshtml()))   
